@@ -2,7 +2,7 @@
 
 %% initialize COCO api (please specify dataType/annType below)
 annTypes = { 'instances', 'captions', 'person_keypoints' };
-dataType='val2014'; annType=annTypes{1}; % specify dataType/annType
+dataType='train2014'; annType=annTypes{1}; % specify dataType/annType
 annFile=sprintf('../annotations/%s_%s.json',annType,dataType);
 coco=CocoApi(annFile);
 
