@@ -17,6 +17,9 @@ file = matfile('imdb.mat','Writable',true);
 % Filter the annotations
 filteredAnnIds = filterAnns(coco,@(x)isPseudoSquareAndNotSmall(x,squareTolerance,smallestAreaAllowed));
 
+% Shuffle them
+filteredAnnIds = filteredAnnIds(randperm(numel(filteredAnnIds)));
+
 % Load the annotations
 anns = coco.loadAnns(filteredAnnIds);
 
