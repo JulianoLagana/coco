@@ -5,10 +5,10 @@
 coco = CocoApi('../annotations/instances_train2014.json');
 
 % Parameters for creating the dataset
-w = 250;
-h = 250;
-squareTolerance = 1.1;
-smallestAreaAllowed = 1500;
+w = 224;
+h = 224;
+squareTolerance = 10;
+smallestAreaAllowed = 2000;
 
 % Create .mat file and matfile object to write dataset
 delete 'imdb.mat';
