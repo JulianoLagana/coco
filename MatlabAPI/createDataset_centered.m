@@ -2,7 +2,7 @@
 DEBUG = 0;
 
 % Initialize COCO API
-%coco = CocoApi('../annotations/instances_train2014.json');
+coco = CocoApi('../annotations/instances_train2014.json');
 
 % Parameters for creating the dataset
 w = 224;
@@ -13,8 +13,8 @@ intersectionThreshold = 0.3;
 rng(0);
 
 % Create .mat file and matfile object to write dataset
-delete 'imdb.mat';
-file = matfile('centered_imdb.mat','Writable',true);
+delete 'centered_imdb.mat';
+file = matfile('centered_imdb.mat');
 
 % Get all image ids and shuffle them
 imgIds = coco.getImgIds();
@@ -22,6 +22,7 @@ imgIds = imgIds(randperm(numel(imgIds)));
 
 % Create buffer
 bufferSize = 5000; % smallest possible value is 2, because of the way matfile initializes variables
+shuffleIdx = randperm(bufferSize);
 clear buffer1 buffer2 buffer3;
 buffer1(1:w , 1:h , 3, bufferSize) = uint8(0);
 buffer2(1:w , 1:h , 1, bufferSize) = uint8(0);
@@ -102,9 +103,9 @@ for i = 1 : numel(imgIds)
             
             % Save example to buffer
             n = n + 1;
-            buffer1(:,:,:,n) = I;
-            buffer2(:,:,1,n) = partial_mask;
-            buffer3(:,:,1,n) = ground_truth;
+            buffer1(:,:,:,shuffleIdx(n)) = I;
+            buffer2(:,:,1,shuffleIdx(n)) = partial_mask;
+            buffer3(:,:,1,shuffleIdx(n)) = ground_truth;
             
             % If buffer is full, save to file and "empty" it
             if n == bufferSize
@@ -121,6 +122,7 @@ for i = 1 : numel(imgIds)
                     file.masks = buffer3;
                     n = 0;
                     nImagesSaved = nImagesSaved + bufferSize;
+                    shuffleIdx = randperm(bufferSize);
                 else
                     % If not, determine how many images were already saved, and
                     % start saving from there
@@ -129,6 +131,7 @@ for i = 1 : numel(imgIds)
                     file.masks(:,:, 1, nImagesSaved+1 : nImagesSaved+n) = buffer3;
                     n = 0;
                     nImagesSaved = nImagesSaved + bufferSize;
+                    shuffleIdx = randperm(bufferSize);
                 end
 
             end
@@ -151,6 +154,12 @@ end
 % Empty the buffer by saving the remaining contents to file
 if n > 0
     
+    % Remove elements that are not from the current save
+    idxsSaved = sort(shuffleIdx(1:n));
+    buffer1 = buffer1(:,:,:,idxsSaved);
+    buffer2 = buffer2(:,:,1,idxsSaved);
+    buffer3 = buffer3(:,:,1,idxsSaved);
+    
     % Determine if this is the first save
     varlist = whos(file);
     if numel(varlist) < 3
@@ -160,7 +169,7 @@ if n > 0
         file.partial_masks = buffer2;
         file.masks = buffer3;
         n = 0;
-        nImagesSaved = nImagesSaved + bufferSize;
+        nImagesSaved = nImagesSaved + n;
     else
         % If not, determine how many images were already saved, and
         % start saving from there
@@ -168,7 +177,7 @@ if n > 0
         file.partial_masks(:,:, 1, nImagesSaved+1 : nImagesSaved+n) = buffer2(:,:,1,1:n);
         file.masks(:,:, 1, nImagesSaved+1 : nImagesSaved+n) = buffer3(:,:,1,1:n);
         n = 0;
-        nImagesSaved = nImagesSaved + bufferSize;
+        nImagesSaved = nImagesSaved + n;
     end
     
 end
