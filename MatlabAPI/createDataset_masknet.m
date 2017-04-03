@@ -7,8 +7,8 @@ coco = CocoApi('../annotations/instances_train2014.json');
 % Parameters for creating the dataset
 w = 224;
 h = 224;
-squareTolerance = 10;
-smallestAreaAllowed = 50;
+squareTolerance = 4;
+smallestAreaAllowed = 2000;
 intersectionThreshold = 0.3;
 rng(0);
 
@@ -21,12 +21,12 @@ imgIds = coco.getImgIds();
 imgIds = imgIds(randperm(numel(imgIds)));
 
 % Create buffer
-bufferSize = 5000; % smallest possible value is 2, because of the way matfile initializes variables
+bufferSize = 50; % smallest possible value is 2, because of the way matfile initializes variables
 shuffleIdx = randperm(bufferSize);
 clear buffer1 buffer2 buffer3;
 buffer1(1:w , 1:h , 3, bufferSize) = uint8(0);
-buffer2(1:w , 1:h , 1, bufferSize) = uint8(0);
-buffer3(1:w , 1:h , 1, bufferSize) = uint8(0);
+buffer2(1:w , 1:h , 1, bufferSize) = int8(0);
+buffer3(1:w , 1:h , 1, bufferSize) = int8(0);
 n = 0;
 nImagesSaved = 0;
 
@@ -104,8 +104,13 @@ for i = 1 : numel(imgIds)
             % Save example to buffer
             n = n + 1;
             buffer1(:,:,:,shuffleIdx(n)) = I;
-            buffer2(:,:,1,shuffleIdx(n)) = partial_mask;
-            buffer3(:,:,1,shuffleIdx(n)) = ground_truth;
+            pm = int8(partial_mask);
+            gt = int8(ground_truth);
+            pm(pm == 0) = -1;
+            gt(gt == 0) = -1;            
+            buffer2(:,:,1,shuffleIdx(n)) = pm;            
+            buffer3(:,:,1,shuffleIdx(n)) = gt;
+
             
             % If buffer is full, save to file and "empty" it
             if n == bufferSize
