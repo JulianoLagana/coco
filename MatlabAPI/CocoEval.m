@@ -107,57 +107,126 @@ classdef CocoEval < handle
     
     function evaluate( ev )
       % Run per image evaluation on given images.
-      fprintf('Running per image evaluation...      '); clk=clock;
-      p=ev.params; if(~p.useCats), p.catIds=1; end; t={'bbox','segm'};
-      if(isfield(p,'useSegm')), p.iouType=t{p.useSegm+1}; end
-      p.imgIds=unique(p.imgIds); p.catIds=unique(p.catIds); ev.params=p;
-      N=length(p.imgIds); K=length(p.catIds); A=size(p.areaRng,1);
+      fprintf('Running per image evaluation...      '); 
+      clk=clock;
+      p=ev.params; 
+      if(~p.useCats)
+          p.catIds=1; 
+      end; 
+      t={'bbox','segm'};
+      if(isfield(p,'useSegm'))
+          p.iouType=t{p.useSegm+1}; 
+      end
+      p.imgIds=unique(p.imgIds); 
+      p.catIds=unique(p.catIds); 
+      ev.params=p;
+      N=length(p.imgIds); 
+      K=length(p.catIds); 
+      A=size(p.areaRng,1);
+      
       [nGt,iGt]=getAnnCounts(ev.cocoGt,p.imgIds,p.catIds,p.useCats);
       [nDt,iDt]=getAnnCounts(ev.cocoDt,p.imgIds,p.catIds,p.useCats);
-      [ks,is]=ndgrid(1:K,1:N); ev.evalImgs=cell(N,K,A);
-      for i=1:K*N, if(nGt(i)==0 && nDt(i)==0), continue; end
+      
+      [ks,is]=ndgrid(1:K,1:N); 
+      ev.evalImgs=cell(N,K,A);
+      
+      for i=1:K*N
+        if(nGt(i)==0 && nDt(i)==0)
+            continue; 
+        end
+          
         gt=ev.cocoGt.data.annotations(iGt(i):iGt(i)+nGt(i)-1);
         dt=ev.cocoDt.data.annotations(iDt(i):iDt(i)+nDt(i)-1);
-        if(~isfield(gt,'ignore')), [gt(:).ignore]=deal(0); end
+        
+        if(~isfield(gt,'ignore'))
+            [gt(:).ignore]=deal(0); 
+        end
+        
         if( strcmp(p.iouType,'segm') )
-          im=ev.cocoGt.loadImgs(p.imgIds(is(i))); h=im.height; w=im.width;
-          for g=1:nGt(i), s=gt(g).segmentation; if(~isstruct(s))
-              gt(g).segmentation=MaskApi.frPoly(s,h,w); end; end
-          f='segmentation'; if(isempty(dt)), [dt(:).(f)]=deal(); end
-          if(~isfield(dt,f)), s=MaskApi.frBbox(cat(1,dt.bbox),h,w);
-            for d=1:nDt(i), dt(d).(f)=s(d); end; end
+          im=ev.cocoGt.loadImgs(p.imgIds(is(i))); 
+          h=im.height; 
+          w=im.width;
+          for g=1:nGt(i)
+              s=gt(g).segmentation; 
+              if(~isstruct(s))
+                gt(g).segmentation=MaskApi.frPoly(s,h,w); 
+              end; 
+          end
+          f='segmentation'; 
+          if(isempty(dt))
+              [dt(:).(f)]=deal(); 
+          end
+          if(~isfield(dt,f))
+            s=MaskApi.frBbox(cat(1,dt.bbox),h,w);
+            for d=1:nDt(i)
+                dt(d).(f)=s(d); 
+            end; 
+          end
         elseif( strcmp(p.iouType,'bbox') )
-          f='bbox'; if(isempty(dt)), [dt(:).(f)]=deal(); end
-          if(~isfield(dt,f)), s=MaskApi.toBbox([dt.segmentation]);
-            for d=1:nDt(i), dt(d).(f)=s(d,:); end; end
+          f='bbox'; 
+          if(isempty(dt))
+              [dt(:).(f)]=deal(); 
+          end
+          if(~isfield(dt,f))
+              s=MaskApi.toBbox([dt.segmentation]);
+              for d=1:nDt(i)
+                  dt(d).(f)=s(d,:); 
+              end; 
+          end
         elseif( strcmp(p.iouType,'keypoints') )
           gtIg=[gt.ignore]|[gt.num_keypoints]==0;
-          for g=1:nGt(i), gt(g).ignore=gtIg(g); end
+          for g=1:nGt(i)
+              gt(g).ignore=gtIg(g); 
+          end
         else
           error('unknown iouType: %s',p.iouType);
         end
-        q=p; q.imgIds=p.imgIds(is(i)); q.maxDets=max(p.maxDets);
-        for j=1:A, q.areaRng=p.areaRng(j,:);
-          ev.evalImgs{is(i),ks(i),j}=CocoEval.evaluateImg(gt,dt,q); end
+        q=p; 
+        q.imgIds=p.imgIds(is(i)); 
+        q.maxDets=max(p.maxDets);
+        for j=1:A
+            q.areaRng=p.areaRng(j,:);
+            ev.evalImgs{is(i),ks(i),j}=CocoEval.evaluateImg(gt,dt,q); 
+        end
       end
-      E=ev.evalImgs; nms={'dtIds','gtIds','dtImgIds','gtImgIds',...
+      E=ev.evalImgs; 
+      nms={'dtIds','gtIds','dtImgIds','gtImgIds',...
         'dtMatches','gtMatches','dtScores','dtIgnore','gtIgnore'};
       ev.evalImgs=repmat(cell2struct(cell(9,1),nms,1),K,A);
-      for i=1:K, is=find(nGt(i,:)>0|nDt(i,:)>0);
-        if(~isempty(is)), for j=1:A, E0=[E{is,i,j}]; for k=1:9
-              ev.evalImgs(i,j).(nms{k})=[E0{k:9:end}]; end; end; end
+      for i=1:K
+          is=find(nGt(i,:)>0|nDt(i,:)>0);
+          if(~isempty(is))
+              for j=1:A
+                  E0=[E{is,i,j}]; 
+                  for k=1:9
+                      ev.evalImgs(i,j).(nms{k})=[E0{k:9:end}]; 
+                  end; 
+              end; 
+          end
       end
       fprintf('DONE (t=%0.2fs).\n',etime(clock,clk));
       
       function [ns,is] = getAnnCounts( coco, imgIds, catIds, useCats )
+        
         % Return ann counts and indices for given imgIds and catIds.
-        as=sort(coco.getCatIds()); [~,a]=ismember(coco.inds.annCatIds,as);
-        bs=sort(coco.getImgIds()); [~,b]=ismember(coco.inds.annImgIds,bs);
-        if(~useCats), a(:)=1; as=1; end; ns=zeros(length(as),length(bs));
-        for ind=1:length(a), ns(a(ind),b(ind))=ns(a(ind),b(ind))+1; end
+        as=sort(coco.getCatIds()); 
+        [~,a]=ismember(coco.inds.annCatIds,as);
+        bs=sort(coco.getImgIds()); 
+        [~,b]=ismember(coco.inds.annImgIds,bs);
+        if(~useCats)
+            a(:)=1; 
+            as=1; 
+        end; 
+        ns=zeros(length(as),length(bs));
+        for ind=1:length(a)
+            ns(a(ind),b(ind))=ns(a(ind),b(ind))+1; 
+        end
         is=reshape(cumsum([0 ns(1:end-1)])+1,size(ns));
-        [~,a]=ismember(catIds,as); [~,b]=ismember(imgIds,bs);
-        ns=ns(a,b); is=is(a,b);
+        [~,a]=ismember(catIds,as); 
+        [~,b]=ismember(imgIds,bs);
+        ns=ns(a,b); 
+        is=is(a,b);
+        
       end
     end
     
@@ -357,47 +426,107 @@ classdef CocoEval < handle
   
   methods( Static )
     function e = evaluateImg( gt, dt, params )
+        
       % Run evaluation for a single image and category.
-      p=params; T=length(p.iouThrs); aRng=p.areaRng;
-      a=[gt.area]; gtIg=[gt.iscrowd]|[gt.ignore]|a<aRng(1)|a>aRng(2);
-      G=length(gt); D=length(dt); for g=1:G, gt(g).ignore=gtIg(g); end
+      p=params;
+      T=length(p.iouThrs);
+      aRng=p.areaRng;
+      a=[gt.area]; 
+      gtIg=[gt.iscrowd]|[gt.ignore]|a<aRng(1)|a>aRng(2);
+      G=length(gt); 
+      D=length(dt); 
+      
+      for g=1:G
+          gt(g).ignore=gtIg(g);
+      end
+      
       % sort dt highest score first, sort gt ignore last
-      [~,o]=sort([gt.ignore],'ascend'); gt=gt(o);
-      [~,o]=sort([dt.score],'descend'); dt=dt(o);
-      if(D>p.maxDets), D=p.maxDets; dt=dt(1:D); end
+      [~,o]=sort([gt.ignore],'ascend'); 
+      gt=gt(o);
+      [~,o]=sort([dt.score],'descend'); 
+      dt=dt(o);
+      if(D>p.maxDets)
+          D=p.maxDets; 
+          dt=dt(1:D); 
+      end
+      
       % compute iou between each dt and gt region
       iscrowd = uint8([gt.iscrowd]);
       t=find(strcmp(p.iouType,{'segm','bbox','keypoints'}));
-      if(t==1), g=[gt.segmentation]; elseif(t==2), g=cat(1,gt.bbox); end
-      if(t==1), d=[dt.segmentation]; elseif(t==2), d=cat(1,dt.bbox); end
-      if(t<=2), ious=MaskApi.iou(d,g,iscrowd); else
-        ious=CocoEval.oks(gt,dt); end
+      if(t==1)
+          g=[gt.segmentation]; 
+      elseif(t==2)
+          g=cat(1,gt.bbox); 
+      end
+      if(t==1)
+          d=[dt.segmentation]; 
+      elseif(t==2)
+          d=cat(1,dt.bbox); 
+      end
+      if(t<=2)
+          ious=MaskApi.iou(d,g,iscrowd); 
+      else
+          ious=CocoEval.oks(gt,dt); 
+      end
+      
       % attempt to match each (sorted) dt to each (sorted) gt
-      gtm=zeros(T,G); gtIds=[gt.id]; gtIg=[gt.ignore];
-      dtm=zeros(T,D); dtIds=[dt.id]; dtIg=zeros(T,D);
+      gtm=zeros(T,G); 
+      gtIds=[gt.id]; 
+      gtIg=[gt.ignore];
+      dtm=zeros(T,D);
+      dtIds=[dt.id];
+      dtIg=zeros(T,D);
+      
       for t=1:T
+          
         for d=1:D
+            
           % information about best match so far (m=0 -> unmatched)
           iou=min(p.iouThrs(t),1-1e-10); m=0;
+          
           for g=1:G
-            % if this gt already matched, and not a crowd, continue
-            if( gtm(t,g)>0 && ~iscrowd(g) ), continue; end
-            % if dt matched to reg gt, and on ignore gt, stop
-            if( m>0 && gtIg(m)==0 && gtIg(g)==1 ), break; end
-            % if match successful and best so far, store appropriately
-            if( ious(d,g)>=iou ), iou=ious(d,g); m=g; end
+              
+              % if this gt already matched, and not a crowd, continue
+              if( gtm(t,g)>0 && ~iscrowd(g) )
+                  continue; 
+              end
+              
+              % if dt matched to reg gt, and on ignore gt, stop
+              if( m>0 && gtIg(m)==0 && gtIg(g)==1 )
+                  break; 
+              end
+              
+              % if match successful and best so far, store appropriately
+              if( ious(d,g)>=iou )
+                  iou=ious(d,g); 
+                  m=g; 
+              end
+              
           end
+          
           % if match made store id of match for both dt and gt
-          if(~m), continue; end; dtIg(t,d)=gtIg(m);
-          dtm(t,d)=gtIds(m); gtm(t,m)=dtIds(d);
+          if(~m)
+              continue; 
+          end; 
+          dtIg(t,d)=gtIg(m);
+          dtm(t,d)=gtIds(m); 
+          gtm(t,m)=dtIds(d);
         end
       end
+      
       % set unmatched detections outside of area range to ignore
-      if(isempty(dt)), a=zeros(1,0); else a=[dt.area]; end
+      if(isempty(dt))
+          a=zeros(1,0); 
+      else
+          a=[dt.area]; 
+      end
       dtIg = dtIg | (dtm==0 & repmat(a<aRng(1)|a>aRng(2),T,1));
+      
       % store results for given image and category
-      dtImgIds=ones(1,D)*p.imgIds; gtImgIds=ones(1,G)*p.imgIds;
+      dtImgIds=ones(1,D)*p.imgIds; 
+      gtImgIds=ones(1,G)*p.imgIds;
       e = {dtIds,gtIds,dtImgIds,gtImgIds,dtm,gtm,[dt.score],dtIg,gtIg};
+      
     end
     
     function o = oks( gt, dt )

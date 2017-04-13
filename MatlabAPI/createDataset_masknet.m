@@ -21,7 +21,7 @@ imgIds = coco.getImgIds();
 imgIds = imgIds(randperm(numel(imgIds)));
 
 % Create buffer
-bufferSize = 50; % smallest possible value is 2, because of the way matfile initializes variables
+bufferSize = 2500; % smallest possible value is 2, because of the way matfile initializes variables
 shuffleIdx = randperm(bufferSize);
 clear buffer1 buffer2 buffer3;
 buffer1(1:w , 1:h , 3, bufferSize) = uint8(0);
